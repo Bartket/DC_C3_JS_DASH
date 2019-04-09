@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <title>dc.js - Downloading Data Table Contents</title>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" type="text/css" href="css/bootstrap.min.css">
+  <link rel="stylesheet" type="text/css" href="css/dc.css" />
+  <link href="https://fonts.googleapis.com/css?family=Overpass" rel="stylesheet">
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/c3/0.6.14/c3.css">
+</head>
+<style>
+  * {
+    font-family: 'Overpass', sans-serif;
+    color: #133337;
+  }
+
+  .dc-chart .axis text {
+    font-size: 12px;
+    color: #133337;
+    fill: #133337;
+  }
+
+  .dc-chart g.row text {
+    fill: #133337;
+  }
+
+  .dc-chart .pie-slice {
+    fill: #133337;
+  }
+</style>
+
+<body>
+  <div class="container">
+    <div class="row">
+      <div class="col-sm">
+        <div id="chart-ring-Value_B" style="width:300px; height:330px">
+          <div class="reset" style="visibility: hidden;">selected: <span class="filter"></span>
+            <a href="javascript:Value_BRingChart.filterAll();dc.redrawAll();">reset</a>
+          </div>
+        </div>
+      </div>
+      <div class="col-sm">
+        <div id="chart-duplicates" style="width:700px; height:330px">
+        </div>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-sm">
+        <div id="chart-row-desc">
+        </div>
+      </div>
+      <div class="col-sm">
+        <div id='chart' style="width:300px; height:300px"></div>
+      </div>
+    </div>
+  </div>
+  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/c3/0.6.14/c3.js"></script>
+  <script type="text/javascript" src="js/promise-polyfill.js"></script>
+  <script type="text/javascript" src="js/fetch.umd.js"></script>
+  <script type="text/javascript" src="js/d3.js"></script>
+  <script type="text/javascript" src="js/crossfilter.js"></script>
+  <script type="text/javascript" src="js/dc.js"></script>
+  <script type="text/javascript">
+    var Value_BRingChart = dc.pieChart("#chart-ring-Value_B"),
+      DuplicatesRowChart = dc.rowChart("#chart-duplicates"),
+      ShortDescriptionRowChart = dc.barChart("#chart-row-desc");
+
+    // Dane wklepane z pliku txt od ciebie, mozna podmienic na jsona z kontrolera
+    var spendData = [{
+        Name: 'a',
+        Category: '11',
+        Value_A: 50,
+        Value_B: 73,
+        Value_C: 21035,
+        flag: 'Total',
+        Value_D: 73
+      },
+      {
+        Name: 'b',
+        Category: '1',
+        Value_A: 60,
+        Value_B: 0,
+        Value_C: 34389,
+        flag: 'Total',
+        Value_D: 25
+      },
+      {
+        Name: 'b',
+        Category: '12',
+        Value_A: 70,
+        Value_B: 74,
+        Value_C: 4914,
+        flag: 'Total',
+        Value_D: 16
+      },
+      {
+        Name: 'b',
+        Category: '13',
+        Value_A: 80,
+        Value_B: 5,
+        Value_C: 10271,
+        flag: 'Total',
+        Value_D: 78
+      },
+      {
+        Name: 'a',
+        Category: '15',
+        Value_A: 90,
+        Value_B: 0,
+        Value_C: 11032,
+        flag: 'Total',
+        Value_D: 33
+      },
+      {
+        Name: 'a',
+        Category: '16',
+        Value_A: 100,
+        Value_B: 123,
+        Value_C: 0,
+        flag: 'Total',
+        Value_D: 29
+      },
+      {
+        Name: 'b',
+        Category: 'NULL',
+        Value_A: 98,
+        Value_B: 0,
+        Value_C: 4515,
+        flag: 'Total',
+        Value_D: 53
+      }
+    ];
+
+    function regroup(dim, cols) {
+      var _groupAll = dim.groupAll().reduce(
+        function(p, v) { // add
+          cols.forEach(function(c) {
+            p[c] += v[c];
+          });
+          return p;
+        },
+        function(p, v) { // remove
+          cols.forEach(function(c) {
+            p[c] -= v[c];
+          });
+          return p;
+        },
+        function() { // init
+          var p = {};
+          cols.forEach(function(c) {
+            p[c] = 0;
+          });
+          return p;
+        });
+      return {
+        all: function() {
+          // or _.pairs, anything to turn the object into an array
+          return d3.map(_groupAll.value()).entries();
+        }
+      };
+    }
+
+    function my_func() {
+      total = 0,
+        data = DataSourceDim.top(Infinity)
+      for (i = 0; i < data.length; i++) {
+        total += data[i].Value_A;
+      }
+      Percent = (data[0].Value_A / total * 100).toFixed(2);
+      chart.load({
+        columns: [
+          ['data', Percent]
+        ]
+      });
+    }
+    // set crossfilter
+    var ndx = crossfilter(spendData),
+      DataSourceDim = ndx.dimension(function(d) {
+        return d.Category;
+      }),
+      DataSourceDim2 = ndx.dimension(function(d) {
+        return d.flag;
+      }),
+      DataSourceDim3 = ndx.dimension(function(d) {
+        return d.Name;
+      }),
+      multidimension = ndx.dimension(function(d) {
+        return d.Value_A + ',' + d.Value_B + ',' + d.Value_D;
+      }),
+      NumberOfRecordsDim = ndx.dimension(function(d) {
+        return Math.floor(d.Value_A / 10);
+      }),
+      Value_BDim = ndx.dimension(function(d) {
+        return Math.floor(d.Value_B / 10);
+      }),
+      ShortDescriptionDim = ndx.dimension(function(d) {
+        return Math.floor(d.Value_C / 10);
+      }),
+      sidewaysGroup = regroup(multidimension, ['Value_A', 'Value_B', 'Value_D']),
+      DataSourcePerValue_B = DataSourceDim.group().reduceSum(function(d) {
+        return +d.Value_A;
+      }),
+      DataSourcePerCategory = DataSourceDim2.group().reduceSum(function(d) {
+        return +d.Value_B;
+      });
+    DataSourcePerShortDescription = DataSourceDim3.group().reduceSum(function(d) {
+      return d.Value_C;
+    });
+
+    Value_BRingChart
+      .width(300)
+      .height(300)
+      .dimension(DataSourceDim)
+      .group(DataSourcePerValue_B)
+      .innerRadius(50)
+      .controlsUseVisibility(true)
+      .on("filtered", my_func);
+
+    DuplicatesRowChart
+      .height(150)
+      .dimension(multidimension)
+      .group(sidewaysGroup)
+      .elasticX(true)
+      .controlsUseVisibility(true)
+DuplicatesRowChart.filter = function() {};
+    ShortDescriptionRowChart
+      .margins({
+        top: 50,
+        left: 75,
+        right: 0,
+        bottom: 50
+      }) //Margins for Labels
+      .width(768)
+      .height(380)
+      .x(d3.scaleBand())
+      .xUnits(dc.units.ordinal)
+      .brushOn(false)
+      .xAxisLabel('Category', 50)
+      .yAxisLabel('Count', 50)
+      .dimension(DataSourceDim3)
+      .barPadding(0.12)
+      .outerPadding(0.05)
+      .group(DataSourcePerShortDescription)
+      .on("filtered", my_func);
+
+    dc.renderAll();
+    total = 0, //set a variable that holds our total
+      data = DataSourceDim.top(Infinity) //reference the element in the "JSON" aka object literal we want
+    for (i = 0; i < data.length; i++) { //loop through the array
+      total += data[i].Value_A; //Do the math!
+    }
+    Percent = (data[0].Value_A / total * 100).toFixed(2);
+
+    var chart = c3.generate({
+      data: {
+        columns: [
+          ['data', Percent]
+        ],
+        type: 'gauge'
+      },
+      color: {
+        pattern: ['#FF0000', '#F97600', '#F6C600', '#60B044'], // the three color levels for the percentage values.
+        threshold: {
+          //            unit: 'value', // percentage is default
+          //            max: 200, // 100 is default
+          values: [30, 60, 90, 100]
+        }
+      }
+    });
+  </script>
+
+  </div>
+</body>
+
+</html>
